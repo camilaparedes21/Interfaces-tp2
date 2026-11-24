@@ -1,9 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getPostsByUser } from '../services/api';
+import { getPostsByUser, getCommentsByPost } from '../services/api';
 import type { Post } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 
+// 1. Componente separado para cada publicación
+const PostCard: React.FC<{ post: Post }> = ({ post }) => {
+  const [commentCount, setCommentCount] = useState<number>(0);
+
+  useEffect(() => {
+    getCommentsByPost(post.id)
+      .then((comments) => setCommentCount(comments.length))
+      .catch(() => setCommentCount(0));
+  }, [post.id]);
+
+  return (
+    <div style={{ flexDirection: 'column', border: '1px solid #ccc', padding: '1rem', margin: '1rem 0', borderRadius: '8px', background: '#fff' }}>
+      <p>{post.description}</p>
+      <div style={{ flexDirection: 'column', display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+        <small style={{ color: '#666' }}>
+          Publicado el: {new Date((post as any).createdAt || '').toLocaleString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          })}
+        </small>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+          <p>💬 {commentCount} comentarios</p>
+          <Link to={`/post/${post.id}`}>Ver detalle</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 2. Componente principal Profile
 export const Profile: React.FC = () => {
   const { user, logout } = useAuth();
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -55,7 +90,7 @@ export const Profile: React.FC = () => {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: false // Cambia a true si prefieres AM/PM
+          hour12: false
         })}</p>
         <button 
           onClick={handleLogout}
@@ -73,10 +108,7 @@ export const Profile: React.FC = () => {
         <p style={{ color: '#666' }}>Todavía no realizaste ninguna publicación.</p>
       ) : (
         userPosts.map((post) => (
-          <div key={post.id} style={{ border: '1px solid #ccc', padding: '1rem', margin: '1rem 0', borderRadius: '8px', background: '#fff' }}>
-            <p>{post.description}</p>
-            <Link to={`/post/${post.id}`}>Ver detalle</Link>
-          </div>
+          <PostCard key={post.id} post={post} />
         ))
       )}
     </div>
