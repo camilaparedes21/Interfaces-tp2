@@ -20,7 +20,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, images, commentCount }
           variant="top"
           src={primeraImagen.url}
           alt="Imagen de la publicación"
-          style={{ height: 200, objectFit: 'cover' }}
+          style={{ height: 200, objectFit: 'contain', backgroundColor: '#f1f1f1' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       )}

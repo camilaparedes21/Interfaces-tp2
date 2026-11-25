@@ -88,7 +88,7 @@ export const PostDetail: React.FC = () => {
               src={images[0].url}
               alt="Imagen de la publicación"
               className="img-fluid rounded w-100 mb-3"
-              style={{ height: 320, objectFit: 'cover' }}
+              style={{ height: 320, objectFit: 'contain', backgroundColor: '#f1f1f1' }}
             />
           )}
 
@@ -100,7 +100,7 @@ export const PostDetail: React.FC = () => {
                     src={img.url}
                     alt="Imagen de la publicación"
                     className="d-block w-100 rounded"
-                    style={{ height: 320, objectFit: 'cover' }}
+                    style={{ height: 320, objectFit: 'contain', backgroundColor: '#f1f1f1' }}
                   />
                 </Carousel.Item>
               ))}
