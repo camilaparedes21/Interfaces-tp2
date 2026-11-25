@@ -1,176 +1,159 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPosts, getCommentsByPost, getImagesByPost, createComment } from '../services/api';
+import { Card, Spinner, Alert, ListGroup, Carousel } from 'react-bootstrap';
+import { getPostById, getCommentsByPost, getImagesByPost, createComment } from '../services/api';
 import type { Post, Comment, PostImage } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 export const PostDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();   // el :id de la ruta /post/:id
   const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [images, setImages] = useState<PostImage[]>([]);
-  const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
 
-  useEffect(() => {
-    const fetchPostData = async () => {
+  // Formulario de comentario
+  const [newComment, setNewComment] = useState('');
+  const [commentError, setCommentError] = useState('');
+
+   useEffect(() => {
+    const cargarDetalle = async () => {
+      if (!id) return;
       try {
-        const posts = await getPosts();    
-        const foundPost = posts.find((p: Post) => String(p.id) === id);            
-        if (!foundPost) {
-          setError('Publicación no encontrada');
-          setLoading(false);
-          return;
-        }
+        const postData = await getPostById(id);
+        const commentsData = await getCommentsByPost(id);
+        const imagesData = await getImagesByPost(id);
 
-        setPost(foundPost);
-
-        const [commentsData, imagesData] = await Promise.all([
-          getCommentsByPost(id!),
-          getImagesByPost(id!)
-        ]);
-
+        setPost(postData);
         setComments(commentsData);
         setImages(imagesData);
-      } catch (err) {
-        console.error(err);
-        setError('Error al cargar la publicación');
+      } catch (error) {
+        setError((error as Error).message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-      fetchPostData();
-    }
+    cargarDetalle();
   }, [id]);
 
-  const handleCommentSubmit = async (e: React.FormEvent) => {
+    const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      alert('Debes iniciar sesión para comentar');
+    if (!user || !post) return;
+
+    // Validación: el comentario es obligatorio
+    if (newComment.trim() === '') {
+      setCommentError('El comentario no puede estar vacío');
       return;
     }
-    if (!newComment.trim()) return;
+    setCommentError('');
 
     try {
-      // Enviamos 'content' porque así lo espera el backend
-      const created = await createComment({
-        description: newComment, // O podés pasarle directamente content: newComment si ajustaste el api.ts
-        postId: Number(id),
-        userId: user.id
-      } as any);
-      const createdWithUser = {
-        ...created,
-        User: {
-          nickName: user.nickName // Asegúrate de que la propiedad en tu objeto 'user' se llame así
-        }
-      };
-      setComments([...comments, createdWithUser]);
+      const created = await createComment(newComment.trim(), post.id, user.id);
+      // La API devuelve el comentario sin el autor: se lo agregamos con el usuario logueado
+      setComments([...comments, { ...created, User: user }]);
       setNewComment('');
-    } catch (err) {
-      console.error(err);
-      alert('No se pudo enviar el comentario');
+    } catch (error) {
+      setCommentError((error as Error).message);
     }
   };
 
-  if (loading) return <p style={{ padding: '2rem' }}>Cargando detalles de la publicación...</p>;
+    if (loading) return <div className="container py-4"><Spinner animation="border" /></div>;
+
   if (error || !post) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <p style={{ color: 'red' }}>{error || 'El post no existe'}</p>
-        <Link to="/">Volver al Feed</Link>
+      <div className="container py-4">
+        <Alert variant="danger">{error || 'La publicación no existe'}</Alert>
+        <Link to="/" className="btn btn-outline-secondary">← Volver al feed</Link>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '600px', margin: 'auto' }}>
-      <Link to="/">← Volver al Feed</Link>
-      
-      {/* Detalle del Post */}
-      <div style={{ border: '1px solid #ccc', padding: '1.5rem', margin: '1rem 0', borderRadius: '8px', background: '#fff' }}>
-        <p style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>{post.description}</p>
-        {images.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', marginBottom: '1rem' }}>
-            {images.map((img) => (
-              <img key={img.id} src={img.url} alt="Post attachment" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px' }} />
+    <div className="container py-4" style={{ maxWidth: 720 }}>
+      <Link to="/" className="btn btn-outline-secondary mb-3">← Volver al feed</Link>
+
+      {/* Detalle del post */}
+      <Card className="mb-4 shadow-sm">
+        <Card.Body>
+          {post.User && (
+            <Card.Subtitle className="mb-2 text-muted">@{post.User.nickName}</Card.Subtitle>
+          )}
+          <Card.Text className="fs-5">{post.description}</Card.Text>
+
+                    {images.length === 1 && (
+            <img
+              src={images[0].url}
+              alt="Imagen de la publicación"
+              className="img-fluid rounded w-100 mb-3"
+              style={{ height: 320, objectFit: 'cover' }}
+            />
+          )}
+
+          {images.length > 1 && (
+            <Carousel className="mb-3" interval={null}>
+              {images.map((img) => (
+                <Carousel.Item key={img.id}>
+                  <img
+                    src={img.url}
+                    alt="Imagen de la publicación"
+                    className="d-block w-100 rounded"
+                    style={{ height: 320, objectFit: 'cover' }}
+                  />
+                </Carousel.Item>
+              ))}
+            </Carousel>
+          )}
+
+                   <div className="mb-2">
+            {post.Tags && post.Tags.map((tag) => (
+              <span className={`badge me-1 tag-color-${tag.id % 4}`} key={tag.id}>#{tag.name}</span>
             ))}
           </div>
-        )}
-        <p style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>@{(post as any).User?.nickName || 'Desconocido'}</p>        
-        {(post as any).Tags?.length > 0 && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {(post as any).Tags.map((tag: any, index: number) => (
-              <span
-                key={tag.id || index}
-                style={{
-                  background: '#eef2ff',
-                  color: '#3730a3',
-                  padding: '0.25rem 0.6rem',
-                  borderRadius: '999px',
-                  fontSize: '0.85rem'
-                }}
-              >#{tag.name}
-              </span>
-            ))}
-          </div>
-        )}
 
-        <small style={{ color: '#666' }}>Publicado el: {new Date((post as any).createdAt || '').toLocaleString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false // Cambia a true si prefieres AM/PM
-        })}</small>
-      </div>
+          <small className="text-muted">
+            Publicado el {new Date(post.createdAt).toLocaleDateString('es-AR')}
+          </small>
+        </Card.Body>
+      </Card>
 
-      {/* Sección de Comentarios */}
-      <h3>Comentarios</h3>
+      {/* Comentarios */}
+      <h3 className="h5 mb-3">Comentarios ({comments.length})</h3>
+
       {comments.length === 0 ? (
-        <p style={{ color: '#666' }}>No hay comentarios todavía. ¡Sé el primero en comentar!</p>
+        <p className="text-muted">No hay comentarios todavía. ¡Sé el primero en comentar!</p>
       ) : (
-        comments.map((comment) => (
-          <div key={comment.id} style={{ background: '#f9f9f9', padding: '0.75rem', margin: '0.5rem 0', borderRadius: '6px', border: '1px solid #eee' }}>
-            {/* Usamos comment.content que es la propiedad que devuelve la base de datos */}
-            <p style={{ margin: 0 }}>{(comment as any).content || comment.description}</p>
-            <small style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: '#666' }}>@{(comment as any).User?.nickName || 'Desconocido'}</small>
-            <small style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: '#666' }}>Publicado el: {new Date((comment as any).createdAt || '').toLocaleString('es-AR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false // Cambia a true si prefieres AM/PM
-            })}</small>
-          </div>
-        ))
+        <ListGroup className="mb-4">
+          {comments.map((comment) => (
+            <ListGroup.Item key={comment.id}>
+              {comment.User && <strong>@{comment.User.nickName}: </strong>}
+              {comment.content}
+            </ListGroup.Item>
+          ))}
+        </ListGroup>
       )}
 
       {/* Formulario para nuevo comentario */}
       {user ? (
-        <form onSubmit={handleCommentSubmit} style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <textarea
-            placeholder="Escribe un comentario..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            rows={3}
-            required
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-          <button type="submit" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Comentar</button>
+        <form onSubmit={handleCommentSubmit} noValidate>
+          <div className="mb-2">
+            <textarea
+              className={`form-control ${commentError ? 'is-invalid' : ''}`}
+              placeholder="Escribí un comentario..."
+              rows={3}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+            />
+            {commentError && <div className="invalid-feedback">{commentError}</div>}
+          </div>
+          <button type="submit" className="btn btn-primary">Comentar</button>
         </form>
       ) : (
-        <p style={{ marginTop: '1.5rem', fontStyle: 'italic' }}>
-          <Link to="/login">Inicia sesión</Link> para dejar un comentario.
-        </p>
+        <Alert variant="info">
+          <Link to="/login">Iniciá sesión</Link> para dejar un comentario.
+        </Alert>
       )}
     </div>
   );

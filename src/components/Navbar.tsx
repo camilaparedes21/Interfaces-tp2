@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Navbar as BsNavbar, Nav, Container } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -12,27 +13,34 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <nav style={{ padding: '1rem', background: '#f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div>
-        <Link to="/" style={{ textDecoration: 'none', fontWeight: 'bold', fontSize: '1.2rem', color: '#333' }}>
-          UnaHur Anti-Social Net
-        </Link>
-      </div>
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <Link to="/">Home</Link>
-        {user ? (
-          <>
-            <Link to="/create-post">Crear Post</Link>
-            <Link to="/profile">Perfil ({user.nickName})</Link>
-            <button onClick={handleLogout} style={{ cursor: 'pointer' }}>Cerrar Sesión</button>
-          </>
-        ) : (
-          <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Registro</Link>
-          </>
-        )}
-      </div>
-    </nav>
+    <BsNavbar bg="dark" variant="dark" expand="md" className="mb-3">
+      <Container>
+        <Link to="/" className="navbar-brand fw-bold">UnaHur Anti-Social Net</Link>
+
+        {/* Botón ☰ que aparece en pantallas chicas */}
+        <BsNavbar.Toggle aria-controls="menu-principal" />
+
+        <BsNavbar.Collapse id="menu-principal">
+          <Nav className="ms-auto align-items-md-center gap-md-2">
+            <NavLink to="/" end className="nav-link">Inicio</NavLink>
+
+            {user ? (
+              <>
+                <NavLink to="/create-post" className="nav-link">Crear post</NavLink>
+                <NavLink to="/profile" className="nav-link">Perfil (@{user.nickName})</NavLink>
+                <button onClick={handleLogout} className="btn btn-outline-light btn-sm my-2 my-md-0">
+                  Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink to="/login" className="nav-link">Iniciar sesión</NavLink>
+                <NavLink to="/register" className="nav-link">Registrarse</NavLink>
+              </>
+            )}
+          </Nav>
+        </BsNavbar.Collapse>
+      </Container>
+    </BsNavbar>
   );
 };

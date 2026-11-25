@@ -1,64 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getPostsByUser, getCommentsByPost } from '../services/api';
-import type { Post } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
+import { Row, Col, Spinner, Alert, Card } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext';
+import { getPostsByUser, getImagesByPost, getCommentsByPost } from '../services/api';
+import { PostCard } from '../components/PostCard';
+import type { Post, PostImage } from '../types';
 
-// 1. Componente separado para cada publicación
-const PostCard: React.FC<{ post: Post }> = ({ post }) => {
-  const [commentCount, setCommentCount] = useState<number>(0);
+// Cada post junto con los datos que la API trae por separado
+interface PostConDatos {
+  post: Post;
+  images: PostImage[];
+  commentCount: number;
+}
 
-  useEffect(() => {
-    getCommentsByPost(post.id)
-      .then((comments) => setCommentCount(comments.length))
-      .catch(() => setCommentCount(0));
-  }, [post.id]);
-
-  return (
-    <div style={{ flexDirection: 'column', border: '1px solid #ccc', padding: '1rem', margin: '1rem 0', borderRadius: '8px', background: '#fff' }}>
-      <p>{post.description}</p>
-      <div style={{ flexDirection: 'column', display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-        <small style={{ color: '#666' }}>
-          Publicado el: {new Date((post as any).createdAt || '').toLocaleString('es-AR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-          })}
-        </small>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-          <p>💬 {commentCount} comentarios</p>
-          <Link to={`/post/${post.id}`}>Ver detalle</Link>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// 2. Componente principal Profile
 export const Profile: React.FC = () => {
   const { user, logout } = useAuth();
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const [userPosts, setUserPosts] = useState<PostConDatos[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
   useEffect(() => {
-    const fetchUserPosts = async () => {
+    const cargarPosts = async () => {
       if (!user) return;
       try {
+        // 1. Traemos solo los posts de este usuario (GET /posts?userId=...)
         const posts = await getPostsByUser(user.id);
-        setUserPosts(posts);
-      } catch (err) {
-        console.error('Error al cargar las publicaciones del usuario:', err);
+
+        // 2. Por cada post, pedimos sus imágenes y sus comentarios
+        const postsConDatos: PostConDatos[] = [];
+        for (const post of posts) {
+          const images = await getImagesByPost(post.id);
+          const comments = await getCommentsByPost(post.id);
+          postsConDatos.push({ post, images, commentCount: comments.length });
+        }
+
+        setUserPosts(postsConDatos);
+      } catch (error) {
+        setError((error as Error).message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserPosts();
+    cargarPosts();
   }, [user]);
 
   const handleLogout = () => {
@@ -66,51 +52,41 @@ export const Profile: React.FC = () => {
     navigate('/login');
   };
 
-  if (!user) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>No has iniciado sesión.</p>
-        <Link to="/login">Ir al Login</Link>
-      </div>
-    );
-  }
+  // La ruta es protegida, así que siempre hay usuario; esto es para TypeScript
+  if (!user) return null;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '600px', margin: 'auto' }}>
-      <h2>Perfil de Usuario</h2>
-      
-      {/* Información del usuario */}
-      <div style={{ background: '#f4f4f4', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-        <p><strong>NickName:</strong> {user.nickName}</p>
-        <p><strong>Correo electrónico:</strong> {(user as any).email}</p>
-        <p><strong>Registrado el:</strong> {new Date((user as any).createdAt || '').toLocaleString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        })}</p>
-        <button 
-          onClick={handleLogout}
-          style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Cerrar Sesión
-        </button>
-      </div>
+    <div className="container py-4">
+      {/* Datos del usuario */}
+      <Card className="mb-4 shadow-sm">
+        <Card.Body className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+          <div>
+            <h2 className="mb-1">@{user.nickName}</h2>
+            <small className="text-muted">{user.email}</small>
+          </div>
+          <div className="d-flex gap-2">
+            <Link to="/create-post" className="btn btn-primary">Nueva publicación</Link>
+            <button onClick={handleLogout} className="btn btn-outline-danger">Cerrar sesión</button>
+          </div>
+        </Card.Body>
+      </Card>
 
       {/* Publicaciones del usuario */}
-      <h3>Mis Publicaciones</h3>
-      {loading ? (
-        <p>Cargando tus publicaciones...</p>
-      ) : userPosts.length === 0 ? (
-        <p style={{ color: '#666' }}>Todavía no realizaste ninguna publicación.</p>
-      ) : (
-        userPosts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))
+      <h3 className="mb-3">Mis publicaciones</h3>
+
+      {loading && <Spinner animation="border" />}
+      {error && <Alert variant="danger">{error}</Alert>}
+      {!loading && !error && userPosts.length === 0 && (
+        <Alert variant="info">Todavía no realizaste ninguna publicación.</Alert>
       )}
+
+      <Row xs={1} md={2} lg={3} className="g-4">
+        {userPosts.map((item) => (
+          <Col key={item.post.id}>
+            <PostCard post={item.post} images={item.images} commentCount={item.commentCount} />
+          </Col>
+        ))}
+      </Row>
     </div>
   );
 };

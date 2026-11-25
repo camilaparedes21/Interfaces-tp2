@@ -1,80 +1,69 @@
 import React, { useEffect, useState } from 'react';
-import { getPosts, getCommentsByPost } from '../services/api';
-import type { Post } from '../types';
-import { Link } from 'react-router-dom';
+import { Row, Col, Spinner, Alert } from 'react-bootstrap';
+import { getPosts, getImagesByPost, getCommentsByPost } from '../services/api';
+import { PostCard } from '../components/PostCard';
+import type { Post, PostImage } from '../types';
 
-// 1. Subcomponente individual para cada post
-const PostCard: React.FC<{ post: Post }> = ({ post }) => {
-  const [commentCount, setCommentCount] = useState<number>(0);
+// Cada post del feed junto con los datos que la API trae por separado
+interface PostConDatos {
+  post: Post;
+  images: PostImage[];
+  commentCount: number;
+}
+
+export const Home: React.FC = () => {
+  const [feed, setFeed] = useState<PostConDatos[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getCommentsByPost(post.id)
-      .then((comments) => setCommentCount(comments.length))
-      .catch(() => setCommentCount(0));
-  }, [post.id]);
+    const cargarFeed = async () => {
+      try {
+        // 1. Traemos todos los posts (ya vienen con User y Tags)
+        const posts = await getPosts();
+
+        // 2. Por cada post, pedimos sus imágenes y sus comentarios
+        const postsConDatos: PostConDatos[] = [];
+        for (const post of posts) {
+          const images = await getImagesByPost(post.id);
+          const comments = await getCommentsByPost(post.id);
+          postsConDatos.push({ post, images, commentCount: comments.length });
+        }
+
+        setFeed(postsConDatos);
+      } catch (error) {
+        setError((error as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarFeed();
+  }, []);
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '1rem', margin: '1rem 0', borderRadius: '8px' }}>
-      <p>{post.description}</p>
-      <p><small style={{ color: '#666' }}>@{(post as any).User?.nickName || 'Desconocido'}</small></p>
-      <p>   {(post as any).Tags?.length > 0 && (
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {(post as any).Tags.map((tag: any, index: number) => (
-            <span
-              key={tag.id || index}
-              style={{
-                background: '#eef2ff',
-                color: '#3730a3',
-                padding: '0.25rem 0.6rem',
-                borderRadius: '999px',
-                fontSize: '0.85rem'
-              }}
-            >#{tag.name}
-            </span>
-          ))}
-        </div>
-      )}</p>    
-      <small style={{ color: '#666' }}>Publicado el: {new Date((post as any).createdAt || '').toLocaleString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false // Cambia a true si prefieres AM/PM
-        })}</small>
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <span>💬 {commentCount} comentarios</span>
-        <Link to={`/post/${post.id}`}>Ver más</Link>
+    <div className="container py-4">
+      {/* Banner de bienvenida */}
+      <div className="p-4 p-md-5 mb-4 bg-dark text-white rounded-3 text-center">
+        <h1 className="display-5 fw-bold">UnaHur Anti-Social Net</h1>
+        <p className="lead mb-0">La red social para los que no quieren ser sociales.</p>
       </div>
+
+      <h2 className="mb-3">Publicaciones recientes</h2>
+
+      {loading && <Spinner animation="border" />}
+      {error && <Alert variant="danger">{error}</Alert>}
+      {!loading && !error && feed.length === 0 && (
+        <Alert variant="info">No hay publicaciones todavía.</Alert>
+      )}
+
+      <Row xs={1} md={2} lg={3} className="g-4">
+        {feed.map((item) => (
+          <Col key={item.post.id}>
+            <PostCard post={item.post} images={item.images} commentCount={item.commentCount} />
+          </Col>
+        ))}
+      </Row>
     </div>
   );
 };
-
-// 2. Componente Home
-export const Home: React.FC = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getPosts()
-      .then((data) => setPosts(data))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <p>Cargando publicaciones...</p>;
-
-  return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Feed Principal</h1>
-      {posts.length === 0 ? (
-        <p>No hay publicaciones todavía.</p>
-      ) : (
-        posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))
-      )}
-    </div>
-  );
-}

@@ -1,30 +1,37 @@
+// Tipos según lo que devuelve la API del profe (Sequelize + SQLite)
+
 export interface User {
-  id: number | string;
+  id: number;
   nickName: string;
-}
-
-export interface Post {
-  id: number | string;
-  description: string;
-  userId: number | string;
-  createdAt?: string; 
-  updatedAt?: string;
-}
-
-export interface Comment {
-  id: number | string;
-  description: string;
-  postId: number | string;
-  userId: number | string;
+  email: string;
 }
 
 export interface Tag {
-  id: number | string;
+  id: number;
   name: string;
 }
 
+export interface Post {
+  id: number;
+  description: string;
+  UserId: number;
+  createdAt: string;
+  updatedAt: string;
+  User?: User;     // viene incluido en GET /posts y GET /posts/:id
+  Tags?: Tag[];    // idem (con T mayúscula, así lo nombra Sequelize)
+}
+
+export interface Comment {
+  id: number;
+  content: string; // la API usa "content", no "description"
+  PostId: number;
+  UserId: number;
+  createdAt: string;
+  User?: User;     // viene incluido en GET /comments/post/:postId
+}
+
 export interface PostImage {
-  id: number | string;
+  id: number;
   url: string;
-  postId: number | string;
+  PostId: number;
 }

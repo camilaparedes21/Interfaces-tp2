@@ -1,93 +1,67 @@
-const API_URL = 'http://localhost:3001'; 
+import type { User, Post, Comment, PostImage, Tag } from '../types';
 
-// --- USUARIOS ---
-export const getUsers = async () => {
-  const res = await fetch(`${API_URL}/users`);
-  if (!res.ok) throw new Error('Error al obtener los usuarios');
-  return res.json();
-};
+const API_URL = 'http://localhost:3001';
 
-export const createUser = async (nickName: string, email: string) => {
-  const res = await fetch(`${API_URL}/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nickName, email }),
-  });
-  return res.json();
-};
-
-// --- POSTS ---
-export const getPosts = async () => {
-  const res = await fetch(`${API_URL}/posts`);  
-  return res.json();
-};
-
-export const getPostsByUser = async (userId: string | number) => {
-  const res = await fetch(`${API_URL}/posts?userId=${userId}`);
-  return res.json();
-};
-
-
-export const createPost = async (postData: { description: string; userId: string | number; tags?: any[] }) => {
-  const res = await fetch(`${API_URL}/posts`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(postData),
-  });
-  return res.json();
-};
-
-// --- COMENTARIOS E IMÁGENES ---
-export const getCommentsByPost = async (postId: string | number) => {
-  const res = await fetch(`${API_URL}/comments/post/${postId}`);
-  return res.json();
-};
-
-// export const createComment = async (commentData: { description: string; postId: string | number; userId: string | number }) => {
-//   const res = await fetch(`${API_URL}/comments`, {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json' },
-//     body: JSON.stringify(commentData),
-//   });
-//   return res.json();
-// };
-
-export const createComment = async (commentData: { description: string; postId: string | number; userId: string | number }) => {
-  const res = await fetch(`${API_URL}/comments`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: commentData.description, // El backend espera "content"
-      postId: commentData.postId,
-      userId: commentData.userId,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error('Error del servidor:', errorText);
-    throw new Error('Error al crear el comentario');
+// Hace el fetch, revisa res.ok y lanza un Error con el mensaje de la API si algo falla
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+  } catch {
+    throw new Error('No se pudo conectar con el servidor.');
   }
 
-  return res.json();
-};
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Ocurrió un error');
+  }
+  return data;
+}
 
-export const getImagesByPost = async (postId: string | number) => {
-  const res = await fetch(`${API_URL}/postimages/post/${postId}`);
-  return res.json();
-};
+// --- USUARIOS ---
+export const getUsers = () => request<User[]>('/users');
 
-export const createPostImage = async (imageData: { url: string; postId: string | number }) => {
-  const res = await fetch(`${API_URL}/postimages`, {
+export const createUser = (nickName: string, email: string) =>
+  request<User>('/users', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(imageData),
+    body: JSON.stringify({ nickName, email }),
   });
-  return res.json();
-};
+
+// --- POSTS ---
+export const getPosts = () => request<Post[]>('/posts');
+
+export const getPostById = (id: number | string) => request<Post>(`/posts/${id}`);
+
+export const getPostsByUser = (userId: number) => request<Post[]>(`/posts?userId=${userId}`);
+
+export const createPost = (description: string, userId: number, tagIds: number[]) =>
+  request<Post>('/posts', {
+    method: 'POST',
+    body: JSON.stringify({ description, userId, tagIds }),
+  });
+
+// --- COMENTARIOS ---
+export const getCommentsByPost = (postId: number | string) =>
+  request<Comment[]>(`/comments/post/${postId}`);
+
+export const createComment = (content: string, postId: number, userId: number) =>
+  request<Comment>('/comments', {
+    method: 'POST',
+    body: JSON.stringify({ content, postId, userId }),
+  });
+
+// --- IMÁGENES ---
+export const getImagesByPost = (postId: number | string) =>
+  request<PostImage[]>(`/postimages/post/${postId}`);
+
+export const createPostImage = (url: string, postId: number) =>
+  request<PostImage>('/postimages', {
+    method: 'POST',
+    body: JSON.stringify({ url, postId }),
+  });
 
 // --- ETIQUETAS ---
-export const getTags = async () => {
-  const res = await fetch(`${API_URL}/tags`);
-  return res.json();
-};
+export const getTags = () => request<Tag[]>('/tags');
