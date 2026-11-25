@@ -1,4 +1,4 @@
-import React, {useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Alert } from 'react-bootstrap';
 import { createPost, createPostImage, getTags } from '../services/api';
@@ -10,14 +10,14 @@ export const CreatePost: React.FC = () => {
   const navigate = useNavigate();
 
   const [description, setDescription] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>(['']);   // arranca con un campo vacío
-  const [tags, setTags] = useState<Tag[]>([]);
+  const [imageUrls, setImageUrls] = useState('');                    // texto del textarea: una URL por línea o separadas por coma
+  const [tags, setTags] = useState<Tag[]>([]);                       // etiquetas disponibles (API)
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]); // etiquetas marcadas
-  
+
   const [errors, setErrors] = useState({ description: '', urls: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // Al montar la página, traemos las etiquetas desde la API
   useEffect(() => {
     const cargarTags = async () => {
@@ -30,20 +30,6 @@ export const CreatePost: React.FC = () => {
     };
     cargarTags();
   }, []);
-
-  // ----- Campos de URL -----
-  const handleUrlChange = (index: number, value: string) => {
-    const nuevasUrls = imageUrls.map((url, i) => (i === index ? value : url));
-    setImageUrls(nuevasUrls);
-  };
-
-  const agregarCampoUrl = () => {
-    setImageUrls([...imageUrls, '']);
-  };
-
-  const quitarCampoUrl = (index: number) => {
-    setImageUrls(imageUrls.filter((_url, i) => i !== index));
-  };
 
   // ----- Etiquetas: marcar / desmarcar -----
   const handleTagChange = (tagId: number) => {
@@ -75,8 +61,13 @@ export const CreatePost: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
-    // Solo tenemos en cuenta los campos de URL que no están vacíos
-    const urlsCargadas = imageUrls.map((url) => url.trim()).filter((url) => url !== '');
+    // Convertimos el texto del textarea en una lista de URLs:
+    // las comas pasan a ser saltos de línea, separamos por línea, sacamos espacios y descartamos vacías
+    const urlsCargadas = imageUrls
+      .replaceAll(',', '\n')
+      .split('\n')
+      .map((url) => url.trim())
+      .filter((url) => url !== '');
 
     const newErrors = validateForm(urlsCargadas);
     setErrors(newErrors);
@@ -128,27 +119,17 @@ export const CreatePost: React.FC = () => {
 
             {/* URLs de imágenes */}
             <div className="mb-3">
-              <label className="form-label">Imágenes (opcional)</label>
-              {imageUrls.map((url, index) => (
-                <div className="input-group mb-2" key={index}>
-                  <input
-                    type="text"
-                    className={`form-control ${errors.urls ? 'is-invalid' : ''}`}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    value={url}
-                    onChange={(e) => handleUrlChange(index, e.target.value)}
-                  />
-                  {imageUrls.length > 1 && (
-                    <button type="button" className="btn btn-outline-danger" onClick={() => quitarCampoUrl(index)}>
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-              {errors.urls && <div className="text-danger small mb-2">{errors.urls}</div>}
-              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={agregarCampoUrl}>
-                + Agregar otra imagen
-              </button>
+              <label htmlFor="imageUrls" className="form-label">Imágenes (opcional)</label>
+              <textarea
+                id="imageUrls"
+                className={`form-control ${errors.urls ? 'is-invalid' : ''}`}
+                rows={4}
+                placeholder={'https://ejemplo.com/foto1.jpg\nhttps://ejemplo.com/foto2.jpg'}
+                value={imageUrls}
+                onChange={(e) => setImageUrls(e.target.value)}
+              />
+              {errors.urls && <div className="invalid-feedback">{errors.urls}</div>}
+              <div className="form-text">Una URL por línea o separadas por coma.</div>
             </div>
 
             {/* Etiquetas */}
@@ -177,6 +158,4 @@ export const CreatePost: React.FC = () => {
       </Card>
     </div>
   );
-}; 
-
-  
+};
